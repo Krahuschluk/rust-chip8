@@ -134,7 +134,11 @@ impl CPU {
                 match opcode & 0x000F {
                     // Assign VX to value of VY
                     0x0000 => {
+                        // X and Y can easily be set higher up
+                        let x = ((opcode & 0x0F00) >> 8) as usize;
+                        let y = ((opcode & 0x00F0) >> 4) as usize;
 
+                        self.cpu_register[x] = self.cpu_register[y];
                     }
 
                     // Set VX to bit VX | VY
@@ -200,6 +204,17 @@ mod tests {
         //CPU::decode_opcode(&mut cpu,0x6211);
         cpu.decode_opcode(0x6211);
         assert_eq!(cpu.cpu_register[0x2], 0x11);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY0() {
+        let mut cpu = CPU::new();
+
+        cpu.cpu_register[3] = 0xFA;
+        assert_eq!(cpu.cpu_register[0x5], 0);
+
+        cpu.decode_opcode(0x8530);
+        assert_eq!(cpu.cpu_register[0x5], 0xFA);
     }
 
 }
