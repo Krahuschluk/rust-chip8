@@ -1,0 +1,8 @@
+Chip8 TODOs for self use
+
+- Figure out how the hell to store state in a good way.
+-- Where should everything be kept? And how to access/propagate mutations to it?
+
+- Opcode implementation + unit tests (pref in the other way)
+
+- How to avoid the casting everywhere after doing bit shifts?
