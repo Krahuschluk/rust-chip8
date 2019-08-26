@@ -77,6 +77,18 @@ pub struct CPU {
 
 
 impl CPU {
+    pub fn new() -> CPU {
+        CPU {
+            memory: [0; 4096],
+            program_counter: 0x200,
+            stack: [0; 16],
+            stack_pointer: 0,
+            cpu_register: [0; 16],
+            opcode: 0,
+            index: 0,
+        }
+    }
+
     pub fn emulate_cycle(&self) {
         // Fetch opcode
         // pc will point to memory, where to pick up opcode
@@ -97,9 +109,31 @@ impl CPU {
 
         merge_opcodes(mem[counter], mem[counter + 1]);
     }
+
+    // Input is a 4-byte opcode
+    // We do everything in hexadecimal -> 0xffff
+    pub fn decode_opcode(&mut self, opcode: u16) {
+        println!("Opcode is 0x{:x}", opcode);
+
+        // Read out first half byte
+        match opcode & 0xF000 {
+            // 6XNN sets VX to NN
+            0x6000 => {
+                println!("0x{:x}", opcode & 0x0FFF);
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+                println!("V: 0x{:x}", x);
+
+                let val = (opcode & 0x00FF) as u8;
+                println!("Value: 0x{:x}", val);
+                self.cpu_register[x] = val;
+            },
+
+            _ => println!("abort"),
+
+        }
+
+    }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -111,7 +145,19 @@ mod tests {
     }
 
     #[test]
-    fn test_apa() {
+    fn test_merge_opcodes() {
         assert_eq!(merge_opcodes(0x1A, 0xB2), 0x1AB2);
+    }
+
+    #[test]
+    fn test_execute_opcode() {
+        let mut cpu = CPU::new();
+
+        assert_eq!(cpu.cpu_register[0x2], 0x00);
+
+        // How did this compile
+        CPU::decode_opcode(&mut cpu,0x6211);
+        assert_eq!(cpu.cpu_register[0x2], 0x11);
+
     }
 }
