@@ -110,7 +110,7 @@ impl CPU {
         merge_opcodes(mem[counter], mem[counter + 1]);
     }
 
-    // Input is a 4-byte opcode
+    // Input is a 2-byte opcode
     // We do everything in hexadecimal -> 0xffff
     pub fn decode_opcode(&mut self, opcode: u16) {
         println!("Opcode is 0x{:x}", opcode);
@@ -127,6 +127,47 @@ impl CPU {
                 println!("Value: 0x{:x}", val);
                 self.cpu_register[x] = val;
             },
+
+            // Mathematical operator block identified on last half byte
+            // 0x_XY_
+            0x8000 => {
+                match opcode & 0x000F {
+                    // Assign VX to value of VY
+                    0x0000 => {
+
+                    }
+
+                    // Set VX to bit VX | VY
+                    0x0001 => {
+
+                    }
+
+                    // Set VX to bit VX & VY
+                    0x0002 => {
+
+                    }
+
+                    // Set VX to VX xor VY
+                    0x0003 => {
+
+                    }
+
+                    // Add VY to VX, carry 1 on VF if needed
+                    0x0004 => {
+
+                    }
+
+                    // Subtract VY from VX, borrow 1 from VF if needed
+                    0x0005 => {
+
+                    }
+
+
+                    _ => println!("abort"),
+
+                }
+
+            }
 
             _ => println!("abort"),
 
@@ -150,14 +191,15 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_opcode() {
+    fn test_execute_opcode_6XNN() {
         let mut cpu = CPU::new();
 
         assert_eq!(cpu.cpu_register[0x2], 0x00);
 
         // How did this compile
-        CPU::decode_opcode(&mut cpu,0x6211);
+        //CPU::decode_opcode(&mut cpu,0x6211);
+        cpu.decode_opcode(0x6211);
         assert_eq!(cpu.cpu_register[0x2], 0x11);
-
     }
+
 }
