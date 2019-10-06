@@ -128,41 +128,83 @@ impl CPU {
                 self.cpu_register[x] = val;
             },
 
+            // Adds NN to VX, no carry flag change
+            0x7000 => {
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+                let nn = (opcode & 0x00FF) as u8;
+                self.cpu_register[x] = self.cpu_register[x] + nn;
+            }
+
             // Mathematical operator block identified on last half byte
             // 0x_XY_
             0x8000 => {
+                // X and Y can easily be set higher up. Read out
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+                let y = ((opcode & 0x00F0) >> 4) as usize;
                 match opcode & 0x000F {
                     // Assign VX to value of VY
                     0x0000 => {
-                        // X and Y can easily be set higher up
-                        let x = ((opcode & 0x0F00) >> 8) as usize;
-                        let y = ((opcode & 0x00F0) >> 4) as usize;
-
                         self.cpu_register[x] = self.cpu_register[y];
                     }
 
                     // Set VX to bit VX | VY
                     0x0001 => {
+                        self.cpu_register[x] = self.cpu_register[x] | self.cpu_register[y];
 
                     }
 
                     // Set VX to bit VX & VY
                     0x0002 => {
-
+                        self.cpu_register[x] = self.cpu_register[x] & self.cpu_register[y];
                     }
 
                     // Set VX to VX xor VY
                     0x0003 => {
+                        self.cpu_register[x] = self.cpu_register[x] ^ self.cpu_register[y];
 
                     }
 
                     // Add VY to VX, carry 1 on VF if needed
                     0x0004 => {
+                        let sum = self.cpu_register[x] as u16 + self.cpu_register[y] as u16;
 
+                        // If overflow, set V[F] to 1
+                        if sum & 0xF00 == 0x100 {
+                            self.cpu_register[0xF] = 1;
+                        }
+
+                        self.cpu_register[x] = (sum & 0xFF) as u8;
                     }
 
                     // Subtract VY from VX, borrow 1 from VF if needed
                     0x0005 => {
+
+                        if self.cpu_register[x] >= self.cpu_register[y] {
+                            self.cpu_register[x] = self.cpu_register[x] - self.cpu_register[y];
+                        } else {
+
+                            // Does behaviour depend on if we can borrow or not? Not clear...
+                            let borrowed_diff = 0x100 + self.cpu_register[x] as u16 - self.cpu_register[y] as u16;
+                            // Assert that borrowed diff & 0xF00 is always 0?
+                            self.cpu_register[x] = (borrowed_diff & 0xFF) as u8;
+                            self.cpu_register[0xF] = 0;
+                        }
+
+                    }
+
+                    // Store least significant bit of VX in VF, then shift VX to right by 1
+                    0x0006 => {
+                        self.cpu_register[0xF] = self.cpu_register[x] & 0b1;
+                        self.cpu_register[x] = self.cpu_register[x] >> 1;
+                    }
+
+                    // Set VX = VY - VX. If borrow, VF = 0 else = 1
+                    0x0007 => {
+
+                    }
+
+                    // Store most significant bit of VX in VF, then shift VX to left by 1
+                    0x000E => {
 
                     }
 
@@ -171,6 +213,16 @@ impl CPU {
 
                 }
 
+            }
+
+            // Skip the next instruction unless VX == VY
+            0x9000 => {
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+                let y = ((opcode & 0x00F0) >> 4) as usize;
+
+                if x != y {
+                    self.program_counter += 2;
+                }
             }
 
             _ => println!("abort"),
@@ -207,6 +259,17 @@ mod tests {
     }
 
     #[test]
+    fn test_execute_opcode_7XNN() {
+        let mut cpu = CPU::new();
+
+        cpu.cpu_register[3] = 0x1;
+        assert_eq!(cpu.cpu_register[0x3], 0x01);
+
+        cpu.decode_opcode(0x7322);
+        assert_eq!(cpu.cpu_register[0x3], 0x23);
+    }
+
+    #[test]
     fn test_execute_opcode_8XY0() {
         let mut cpu = CPU::new();
 
@@ -215,6 +278,79 @@ mod tests {
 
         cpu.decode_opcode(0x8530);
         assert_eq!(cpu.cpu_register[0x5], 0xFA);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY1() {
+        let mut cpu = CPU::new();
+
+        cpu.cpu_register[1] = 0x0F; // X
+        cpu.cpu_register[2] = 0xF0; // Y
+
+        cpu.decode_opcode(0x8121);
+        assert_eq!(cpu.cpu_register[0x1], 0xFF);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY2() {
+        let mut cpu = CPU::new();
+
+        cpu.cpu_register[1] = 0x0F; // X
+        cpu.cpu_register[2] = 0xF1; // Y
+
+        cpu.decode_opcode(0x8122);
+        assert_eq!(cpu.cpu_register[0x1], 0x01);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY3() {
+        let mut cpu = CPU::new();
+
+        cpu.cpu_register[1] = 0x0F; // X
+        cpu.cpu_register[2] = 0x01; // Y
+
+        cpu.decode_opcode(0x8123);
+        assert_eq!(cpu.cpu_register[0x1], 0x0E);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY4() {
+        let mut cpu = CPU::new();
+
+        assert_eq!(cpu.cpu_register[0xF], 0);
+
+        cpu.cpu_register[1] = 0xEE; // X
+        cpu.cpu_register[2] = 0x21; // Y
+
+        cpu.decode_opcode(0x8124);
+        assert_eq!(cpu.cpu_register[0x1], 0xF);
+        assert_eq!(cpu.cpu_register[0xF], 0x1);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY5() {
+        let mut cpu = CPU::new();
+
+        cpu.cpu_register[0xF] = 1;
+
+        cpu.cpu_register[5] = 0xA2; // X
+        cpu.cpu_register[6] = 0xCD; // Y
+
+        cpu.decode_opcode(0x8565);
+        assert_eq!(cpu.cpu_register[0x5], 0xD5);
+        assert_eq!(cpu.cpu_register[0xF], 0);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY6() {
+        let mut cpu = CPU::new();
+
+        assert_eq!(cpu.cpu_register[0xF], 0);
+        cpu.cpu_register[0xA] = 0x19; //X
+
+        cpu.decode_opcode(0x8A06);
+        assert_eq!(cpu.cpu_register[0xA], 0xC);
+        assert_eq!(cpu.cpu_register[0xF], 1);
     }
 
 }
