@@ -3,5 +3,7 @@ name = "rust-chip8"
 version = "0.1.0"
 authors = ["Krah <fehuschluk@gmail.com>"]
 edition = "2018"
+build = "build.rs"
 
 [dependencies]
+sdl2 = "0.32.2"
