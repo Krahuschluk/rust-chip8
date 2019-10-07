@@ -200,12 +200,22 @@ impl CPU {
 
                     // Set VX = VY - VX. If borrow, VF = 0 else = 1
                     0x0007 => {
+                        if self.cpu_register[y] >= self.cpu_register[x] {
+                            self.cpu_register[x] = self.cpu_register[y] - self.cpu_register[x];
+                        } else {
+
+                            let borrowed_diff = 0x100 + self.cpu_register[y] as u16 - self.cpu_register[x] as u16;
+
+                            self.cpu_register[x] = (borrowed_diff & 0xFF) as u8;
+                            self.cpu_register[0xF] = 0;
+                        }
 
                     }
 
                     // Store most significant bit of VX in VF, then shift VX to left by 1
                     0x000E => {
-
+                        self.cpu_register[0xF] = (self.cpu_register[x] & 0b10000000) >> 7;
+                        self.cpu_register[x] = self.cpu_register[x] << 1; // Is this ok though? Bit shift smart enough to not overflow?
                     }
 
 
@@ -215,7 +225,37 @@ impl CPU {
 
             }
 
-            // Skip the next instruction unless VX == VY
+            // Skip the next instruction if VX == NN
+            0x3000 => {
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+                let nn = (opcode & 0xFF) as u8;
+
+                if self.cpu_register[x] == nn {
+                    self.program_counter += 2;
+                }
+            }
+
+            // Skip the next instruction if VX != NN
+            0x4000 => {
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+                let nn = (opcode & 0xFF) as u8;
+
+                if self.cpu_register[x] != nn {
+                    self.program_counter += 2;
+                }
+            }
+
+            // Skip the next instruction iv VX == VY
+            0x5000 => {
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+                let y = ((opcode & 0x00F0) >> 4) as usize;
+
+                if x == y {
+                    self.program_counter += 2;
+                }
+            }
+
+            // Skip the next instruction if VX != VY
             0x9000 => {
                 let x = ((opcode & 0x0F00) >> 8) as usize;
                 let y = ((opcode & 0x00F0) >> 4) as usize;
@@ -346,11 +386,38 @@ mod tests {
         let mut cpu = CPU::new();
 
         assert_eq!(cpu.cpu_register[0xF], 0);
-        cpu.cpu_register[0xA] = 0x19; //X
+        cpu.cpu_register[0xA] = 0x19; // X
 
         cpu.decode_opcode(0x8A06);
         assert_eq!(cpu.cpu_register[0xA], 0xC);
         assert_eq!(cpu.cpu_register[0xF], 1);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XY7() {
+        let mut cpu = CPU::new();
+
+        cpu.cpu_register[0xF] = 1;
+        cpu.cpu_register[0x3] = 0x51; // X
+        cpu.cpu_register[0x8] = 0x1F; // Y
+
+
+        cpu.decode_opcode(0x8387);
+        assert_eq!(cpu.cpu_register[0x3], 0xCE);
+        assert_eq!(cpu.cpu_register[0xF], 0);
+    }
+
+    #[test]
+    fn test_execute_opcode_8XYE() {
+        let mut cpu = CPU::new();
+
+        assert_eq!(cpu.cpu_register[0xF], 0);
+        cpu.cpu_register[0x1] = 0xBA; // X. 0b1011 1010
+
+        cpu.decode_opcode(0x810E);
+        assert_eq!(cpu.cpu_register[0x1], 0x74);  // 0b0111 0100
+        assert_eq!(cpu.cpu_register[0xF], 1);
+
     }
 
 }
