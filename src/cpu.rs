@@ -225,6 +225,21 @@ impl CPU {
 
             }
 
+            // Jump to address NNN
+            0x1000 => {
+
+            }
+
+            // Call subroutine at NNN
+            0x2000 => {
+
+            }
+
+            // Jump to address NNN + V0
+            0xB000 => {
+
+            }
+
             // Skip the next instruction if VX == NN
             0x3000 => {
                 let x = ((opcode & 0x0F00) >> 8) as usize;
@@ -268,6 +283,11 @@ impl CPU {
             _ => println!("abort"),
 
         }
+
+    }
+
+    pub fn read_rom(&mut self, path: String) {
+
 
     }
 }
