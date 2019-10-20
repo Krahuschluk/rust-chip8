@@ -6,19 +6,31 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Duration;
 use sdl2::rect::Rect;
+use std::fs::File;
+use std::io::Read;
 
 pub fn main() {
     println!("Hello, world!");
-    let cpu = cpu::CPU {
-        memory: [123; 4096],
-        program_counter: 0,
+    let mut memory = [0u8; 4096];
+    load_rom(&mut memory);
+
+    //println!("Current memory snapshot: {:?}", &memory[..4096]);
+
+    let mut cpu = cpu::CPU {
+        memory: memory,
+        program_counter: 200,
         stack: [0; 16],
         stack_pointer: 0,
         cpu_register: [0; 16],
         opcode: 0,
         index: 0,
     };
-    draw_something();
+
+
+    // Loop
+    cpu.emulate_cycle();
+
+    //draw_something();
 }
 
 pub fn draw_something() {
@@ -62,4 +74,24 @@ pub fn draw_something() {
 //        canvas.present();
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
+
+}
+
+fn load_rom(memory: &mut [u8; 4096]) {
+    // memory: [u8; 4096]
+    let rom_start_index = 200;
+
+    println!("Attempting to read ROM");
+
+    let mut f = File::open("roms/BRIX").unwrap();
+
+    //let mut buffer =  [0u8; 4096];
+
+    // Read the entire rom
+    //let n = f.read(&mut memory[200..]).unwrap();
+    f.read(&mut memory[200..]).unwrap();
+
+    println!("Current memory snapshot: {:?}", &memory[..4096]);
+
+    println!("Still alive");
 }
