@@ -46,7 +46,7 @@ fn merge_opcodes(first: u8, second: u8) -> u16 {
     let s = second as u16;
     let r = (f << 8) | s;
 
-    println!("0x{:x} 0b{:b}", r, r);
+    //println!("0x{:x} 0b{:b}", r, r);
 
     r
 }
@@ -64,7 +64,6 @@ fn main() {
 }
 
 pub struct CPU {
-    // Maybe inject these from the outside when initializing?
     pub memory: [u8; 4096],
     pub program_counter: u16,
     pub stack: [u16; 16],
@@ -89,25 +88,32 @@ impl CPU {
         }
     }
 
-    pub fn emulate_cycle(&self) {
+    pub fn emulate_cycle(&mut self) {
         // Fetch opcode
         // pc will point to memory, where to pick up opcode
+        println!("Program counter: {}", self.program_counter);
         let opcode = CPU::fetch_opcode(self.program_counter, self.memory);
 
         // Decode opcode
         // Execute opcode
-        //
+        CPU::decode_opcode(self, opcode);
+
+        self.program_counter += 1;
+
+
         // Update timers
     }
 
-    fn fetch_opcode(pc: u16, mem: [u8; 4096]) {
+    fn fetch_opcode(pc: u16, mem: [u8; 4096]) -> u16 {
         // Inputs: pc, memory
         // Output: opcode
         //
         // Use pc and pc + 1, merge
         let counter = pc as usize;
 
-        merge_opcodes(mem[counter], mem[counter + 1]);
+        let r = merge_opcodes(mem[counter], mem[counter + 1]);
+
+        r
     }
 
     // Input is a 2-byte opcode
@@ -117,14 +123,31 @@ impl CPU {
 
         // Read out first half byte
         match opcode & 0xF000 {
+
+            0x0000 => {
+                match opcode & 0x00FF {
+                    0x00E0 => {
+                        // TODO Clear screen
+                    }
+
+                    0x00EE => {
+                        // TODO Return from subroutine
+                    }
+
+                    _ => {
+                       // TODO Maybe implement?
+                    }
+                }
+            }
+
             // 6XNN sets VX to NN
             0x6000 => {
-                println!("0x{:x}", opcode & 0x0FFF);
+                //println!("0x{:x}", opcode & 0x0FFF);
                 let x = ((opcode & 0x0F00) >> 8) as usize;
-                println!("V: 0x{:x}", x);
+                //println!("V: 0x{:x}", x);
 
                 let val = (opcode & 0x00FF) as u8;
-                println!("Value: 0x{:x}", val);
+                //println!("Value: 0x{:x}", val);
                 self.cpu_register[x] = val;
             },
 
@@ -227,17 +250,17 @@ impl CPU {
 
             // Jump to address NNN
             0x1000 => {
-
+                // TODO
             }
 
             // Call subroutine at NNN
             0x2000 => {
-
+                // TODO
             }
 
             // Jump to address NNN + V0
             0xB000 => {
-
+                // TODO
             }
 
             // Skip the next instruction if VX == NN
@@ -280,7 +303,103 @@ impl CPU {
                 }
             }
 
-            _ => println!("abort"),
+            // Set I to address NNN
+            0xA000 => {
+                // TODO
+            }
+
+            // Jump to address NNN + V0
+            0xB000 => {
+                // TODO
+            }
+
+            // Set VX to random(0-255) & NN (0xCXNN)
+            0xC000 => {
+                // TODO
+            }
+
+            // Draw sprite at VX, VY of dimension 8xN pixels.
+            // If any pixel is flipped, VF is set to 1 and 0 if not flipped. (0xDXYN)
+            0xD000 => {
+                // TODO
+            }
+
+            0xE000 => {
+
+                match opcode & 0x00FF {
+
+                    // Skip next instruction if key stored in VX is pressed
+                    0x009E => {
+                        // TODO
+                    }
+
+                    // Skip next instruction if the key stored in VX is not pressed
+                    0x00A1 => {
+                        // TODO
+                    }
+
+                    _ => println!("Unknown opcode {}", opcode)
+
+                }
+
+            }
+
+            0xF000 => {
+
+                match opcode & 0x00FF {
+
+                    // Set VX to value of the delay timer (0xFX07)
+                    0x0007 => {
+                        // TODO
+                    }
+
+                    // Await key press and store in VX (0xFX0A)
+                    0x000A => {
+                        // TODO
+                    }
+
+                    // Set delay timer to VX (0xFX15)
+                    0x0015 => {
+                        // TODO
+                    }
+
+                    // Set sound timer to VX (0xFX18)
+                    0x0018 => {
+                        // TODO
+                    }
+
+                    // Add VX to I (0xFX1E)
+                    0x001E => {
+                        // TODO
+                    }
+
+                    // Set I to location of sprite for character in VX? (0xFX29)
+                    0x0029 => {
+                        // TODO
+                    }
+
+                    // Store the binary rep of VX on I, I+1, I+2 (0xFX33)
+                    0x0033 => {
+                        // TODO
+                    }
+
+                    // Store V0 to VX in memory, starting at I (0xFX55)
+                    0x0055 => {
+                        // TODO
+                    }
+
+                    // Fill V0 to VX from memory, starting at I (0xFX65)
+                    0x0065 => {
+                        // TODO
+                    }
+                }
+
+
+
+
+            }
+
+            _ => println!("Opcode {} not implemented yet", opcode),
 
         }
 
