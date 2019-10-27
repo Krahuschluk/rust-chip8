@@ -1,44 +1,14 @@
 /// ```rust
 /// assert_eq!(2, add(2,3));
 /// ```
-fn add(a: i32, b: i32) -> i32{
-    a + b
-}
 
-//struct CPU {
-//    opcode: u16,
-//
-//    cpu_register: [u8; 16],
-//
-//    index: u16,
-//
-//
-//}
-//
-//struct Memory {
-//    memory: [u8; 4096],
-//    program_counter: u16,
-//}
-//
-//impl Memory {
-//    fn store(&mut self, v: u8) {
-//        self.memory[1] = v;
-//    }
-//
-//    fn fetch(&mut self, val: usize) {
-//        self.memory[val];
-//    }
-//
-//    fn counter_up(&mut self) {
-//        self.program_counter += 1;
-//    }
-//}
+extern crate rand;
 
+use rand::Rng;
 
 struct Stack {
     stack: [u16; 16],
     pointer: u16,
-
 }
 
 fn merge_opcodes(first: u8, second: u8) -> u16 {
@@ -71,9 +41,13 @@ pub struct CPU {
     pub cpu_register: [u8; 16],
     pub opcode: u16,
     pub index: u16,
+    pub pixels: [u8; 2048],
+    pub key: u8,
+
+    pub draw_flag: bool,
+    pub delay_timer: u8,
+    pub sound_timer: u8,
 }
-
-
 
 impl CPU {
     pub fn new() -> CPU {
@@ -85,10 +59,18 @@ impl CPU {
             cpu_register: [0; 16],
             opcode: 0,
             index: 0,
+            pixels: [0; 2048],
+            key: 0,
+            draw_flag: false,
+            delay_timer: 0,
+            sound_timer: 0,
+
+
         }
     }
 
     pub fn emulate_cycle(&mut self) {
+        self.draw_flag = false;
         // Fetch opcode
         // pc will point to memory, where to pick up opcode
         println!("Program counter: {}", self.program_counter);
@@ -98,10 +80,17 @@ impl CPU {
         // Execute opcode
         CPU::decode_opcode(self, opcode);
 
-        self.program_counter += 1;
+
 
 
         // Update timers
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
     }
 
     fn fetch_opcode(pc: u16, mem: [u8; 4096]) -> u16 {
@@ -127,16 +116,21 @@ impl CPU {
             0x0000 => {
                 match opcode & 0x00FF {
                     0x00E0 => {
-                        // TODO Clear screen
+                        for mut pixel in self.pixels.iter() {
+                            pixel = &0;
+                        }
+                        self.draw_flag = true;
+                        self.program_counter += 2;
                     }
 
                     0x00EE => {
-                        // TODO Return from subroutine
+                        self.stack_pointer -= 1;
+                        self.program_counter = self.stack[self.stack_pointer as usize];
+
                     }
 
-                    _ => {
-                       // TODO Maybe implement?
-                    }
+                    // Known opcode here that should not be implemented
+                    _ => println!("Unknown opcode {}", opcode)
                 }
             }
 
@@ -149,6 +143,7 @@ impl CPU {
                 let val = (opcode & 0x00FF) as u8;
                 //println!("Value: 0x{:x}", val);
                 self.cpu_register[x] = val;
+                self.program_counter += 2;
             },
 
             // Adds NN to VX, no carry flag change
@@ -156,6 +151,7 @@ impl CPU {
                 let x = ((opcode & 0x0F00) >> 8) as usize;
                 let nn = (opcode & 0x00FF) as u8;
                 self.cpu_register[x] = self.cpu_register[x] + nn;
+                self.program_counter += 2;
             }
 
             // Mathematical operator block identified on last half byte
@@ -168,22 +164,25 @@ impl CPU {
                     // Assign VX to value of VY
                     0x0000 => {
                         self.cpu_register[x] = self.cpu_register[y];
+                        self.program_counter += 2;
                     }
 
                     // Set VX to bit VX | VY
                     0x0001 => {
                         self.cpu_register[x] = self.cpu_register[x] | self.cpu_register[y];
-
+                        self.program_counter += 2;
                     }
 
                     // Set VX to bit VX & VY
                     0x0002 => {
                         self.cpu_register[x] = self.cpu_register[x] & self.cpu_register[y];
+                        self.program_counter += 2;
                     }
 
                     // Set VX to VX xor VY
                     0x0003 => {
                         self.cpu_register[x] = self.cpu_register[x] ^ self.cpu_register[y];
+                        self.program_counter += 2;
 
                     }
 
@@ -197,6 +196,7 @@ impl CPU {
                         }
 
                         self.cpu_register[x] = (sum & 0xFF) as u8;
+                        self.program_counter += 2;
                     }
 
                     // Subtract VY from VX, borrow 1 from VF if needed
@@ -211,6 +211,7 @@ impl CPU {
                             // Assert that borrowed diff & 0xF00 is always 0?
                             self.cpu_register[x] = (borrowed_diff & 0xFF) as u8;
                             self.cpu_register[0xF] = 0;
+                            self.program_counter += 2;
                         }
 
                     }
@@ -219,6 +220,7 @@ impl CPU {
                     0x0006 => {
                         self.cpu_register[0xF] = self.cpu_register[x] & 0b1;
                         self.cpu_register[x] = self.cpu_register[x] >> 1;
+                        self.program_counter += 2;
                     }
 
                     // Set VX = VY - VX. If borrow, VF = 0 else = 1
@@ -232,6 +234,7 @@ impl CPU {
                             self.cpu_register[x] = (borrowed_diff & 0xFF) as u8;
                             self.cpu_register[0xF] = 0;
                         }
+                        self.program_counter += 2;
 
                     }
 
@@ -239,6 +242,7 @@ impl CPU {
                     0x000E => {
                         self.cpu_register[0xF] = (self.cpu_register[x] & 0b10000000) >> 7;
                         self.cpu_register[x] = self.cpu_register[x] << 1; // Is this ok though? Bit shift smart enough to not overflow?
+                        self.program_counter += 2;
                     }
 
 
@@ -250,17 +254,21 @@ impl CPU {
 
             // Jump to address NNN
             0x1000 => {
-                // TODO
+                // Assuming that this means a simple GOTO, so set the PC to NNN
+                self.program_counter = opcode & 0xFFF;
             }
 
             // Call subroutine at NNN
             0x2000 => {
-                // TODO
+                self.stack[self.stack_pointer as usize] = self.program_counter;
+                self.stack_pointer += 1;
+                self.program_counter = opcode & 0x0FFF;
             }
 
             // Jump to address NNN + V0
             0xB000 => {
-                // TODO
+                // GOTO with flavour
+                self.program_counter = (opcode & 0x0FFF) + self.cpu_register[0] as u16;
             }
 
             // Skip the next instruction if VX == NN
@@ -271,6 +279,7 @@ impl CPU {
                 if self.cpu_register[x] == nn {
                     self.program_counter += 2;
                 }
+                self.program_counter += 2;
             }
 
             // Skip the next instruction if VX != NN
@@ -281,6 +290,7 @@ impl CPU {
                 if self.cpu_register[x] != nn {
                     self.program_counter += 2;
                 }
+                self.program_counter += 2;
             }
 
             // Skip the next instruction iv VX == VY
@@ -291,6 +301,7 @@ impl CPU {
                 if x == y {
                     self.program_counter += 2;
                 }
+                self.program_counter += 2;
             }
 
             // Skip the next instruction if VX != VY
@@ -301,27 +312,30 @@ impl CPU {
                 if x != y {
                     self.program_counter += 2;
                 }
+                self.program_counter += 2;
             }
 
             // Set I to address NNN
             0xA000 => {
-                // TODO
-            }
-
-            // Jump to address NNN + V0
-            0xB000 => {
-                // TODO
+                self.index = opcode & 0x0FFF;
+                self.program_counter += 2;
             }
 
             // Set VX to random(0-255) & NN (0xCXNN)
             0xC000 => {
-                // TODO
+                let mut rng = rand::thread_rng();
+                let r = rng.gen_range(0, 256) as u8;
+                let x = ((opcode & 0x0F00) >> 8) as usize;
+
+                self.cpu_register[x] = r & (opcode & 0xFF) as u8;
+                self.program_counter += 2;
             }
 
             // Draw sprite at VX, VY of dimension 8xN pixels.
             // If any pixel is flipped, VF is set to 1 and 0 if not flipped. (0xDXYN)
             0xD000 => {
                 // TODO
+                self.program_counter += 2;
             }
 
             0xE000 => {
@@ -331,11 +345,13 @@ impl CPU {
                     // Skip next instruction if key stored in VX is pressed
                     0x009E => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     // Skip next instruction if the key stored in VX is not pressed
                     0x00A1 => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     _ => println!("Unknown opcode {}", opcode)
@@ -345,53 +361,69 @@ impl CPU {
             }
 
             0xF000 => {
-
+                let x = ((opcode & 0x0F00) >> 8) as usize;
                 match opcode & 0x00FF {
 
                     // Set VX to value of the delay timer (0xFX07)
                     0x0007 => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     // Await key press and store in VX (0xFX0A)
                     0x000A => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     // Set delay timer to VX (0xFX15)
                     0x0015 => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     // Set sound timer to VX (0xFX18)
                     0x0018 => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     // Add VX to I (0xFX1E)
                     0x001E => {
-                        // TODO
+                        self.index += self.cpu_register[x] as u16;
+                        self.program_counter += 2;
                     }
 
                     // Set I to location of sprite for character in VX? (0xFX29)
                     0x0029 => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     // Store the binary rep of VX on I, I+1, I+2 (0xFX33)
                     0x0033 => {
                         // TODO
+                        self.program_counter += 2;
                     }
 
                     // Store V0 to VX in memory, starting at I (0xFX55)
                     0x0055 => {
-                        // TODO
+                        for i in 0..=x {
+                            self.memory[self.index as usize + i] = self.cpu_register[i]
+                        }
+                        self.program_counter += 2;
                     }
 
                     // Fill V0 to VX from memory, starting at I (0xFX65)
                     0x0065 => {
-                        // TODO
+                        for i in 0..=x {
+                            self.cpu_register[i] = self.memory[self.index as usize + i];
+                        }
+                        self.program_counter += 2;
+
                     }
+
+                    _ => println!("Unknown opcode {}", opcode)
                 }
 
 

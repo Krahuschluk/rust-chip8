@@ -18,20 +18,92 @@ pub fn main() {
 
     let mut cpu = cpu::CPU {
         memory: memory,
-        program_counter: 200,
+        program_counter: 0x200,
         stack: [0; 16],
         stack_pointer: 0,
         cpu_register: [0; 16],
         opcode: 0,
         index: 0,
+        pixels: [0; 2048],
+        key: 0,
+        draw_flag: false,
+        delay_timer: 0,
+        sound_timer: 0,
     };
 
 
-    // Loop
-    cpu.emulate_cycle();
+    let black = Color::RGB(0, 0, 0);
+    let white = Color::RGB(255, 255, 255);
 
-    //draw_something();
+    // Initialize the graphics. Clean this up when I understand wth is going on
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+
+    let window = video_subsystem.window("rust-sdl2 demo", 3*640, 3*320)
+        .position_centered()
+        .build()
+        .unwrap();
+
+    let mut canvas = window.into_canvas().build().unwrap();
+
+    // Clear screen
+    canvas.set_draw_color(black);
+    canvas.clear();
+
+    // Example of white pixels
+    canvas.set_draw_color(white);
+    //let mut rects: [Rect; 2] = [
+    //    Rect::new(30, 30, 30, 150),
+    //    Rect::new(30, 300, 120, 150)
+    //];
+    //canvas.fill_rects(&rects);
+    canvas.present();
+
+    // Event loop using SDL
+    let mut event_pump = sdl_context.event_pump().unwrap();
+    'running: loop {
+        cpu.emulate_cycle();
+        let pixels = cpu.pixels;
+
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} |
+                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    break 'running
+                },
+                Event::KeyDown { keycode: Some(Keycode::Down), .. } => {
+                    //rects[0].y += 10;
+                },
+
+                _ => {}
+            }
+        }
+
+        if cpu.draw_flag {
+            canvas.set_draw_color(black);
+            canvas.clear();
+
+            // Determine which pixels to fill in
+            canvas.set_draw_color(white);
+
+            let pixel_width : u32 = 30;
+            for i in 0..pixels.len() {
+                // 64 x 32 pixels. Probably 2:1 and not 1:2
+                if pixels[i] == 1 {
+                    let x_pos = (i % 64) as i32;
+                    let y_pos = (i / 64) as i32;
+                    canvas.fill_rect(Rect::new(x_pos, y_pos, pixel_width, pixel_width));
+                }
+            }
+
+            canvas.present();
+        }
+
+
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+    }
 }
+
 
 pub fn draw_something() {
     println!("Hello SDL!");
@@ -39,7 +111,7 @@ pub fn draw_something() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("rust-sdl2 demo", 800, 600)
+    let window = video_subsystem.window("rust-sdl2 demo", 3*640, 3*320)
         .position_centered()
         .build()
         .unwrap();
@@ -50,7 +122,10 @@ pub fn draw_something() {
     canvas.clear();
 
     canvas.set_draw_color(Color::RGB(255, 255, 255));
-    let mut rects: [Rect; 2] = [Rect::new(10, 10, 100, 150), Rect::new(10, 300, 100, 150)];
+    let mut rects: [Rect; 2] = [
+        Rect::new(30, 30, 30, 150),
+        Rect::new(30, 300, 120, 150)
+    ];
     canvas.fill_rects(&rects);
 
     canvas.present();
@@ -77,9 +152,15 @@ pub fn draw_something() {
 
 }
 
+fn draw_screen(pixel_array: [u8; 2048]) {
+
+
+
+}
+
 fn load_rom(memory: &mut [u8; 4096]) {
     // memory: [u8; 4096]
-    let rom_start_index = 200;
+    let rom_start_index = 0x200;
 
     println!("Attempting to read ROM");
 
@@ -89,9 +170,9 @@ fn load_rom(memory: &mut [u8; 4096]) {
 
     // Read the entire rom
     //let n = f.read(&mut memory[200..]).unwrap();
-    f.read(&mut memory[200..]).unwrap();
+    f.read(&mut memory[0x200..]).unwrap();
 
-    println!("Current memory snapshot: {:?}", &memory[..4096]);
+    //println!("Current memory snapshot: {:?}", &memory[..4096]);
 
     println!("Still alive");
 }
