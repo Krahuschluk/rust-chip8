@@ -74,7 +74,7 @@ impl CPU {
         // Fetch opcode
         // pc will point to memory, where to pick up opcode
         println!("Program counter: {}", self.program_counter);
-        let opcode = CPU::fetch_opcode(self.program_counter, self.memory);
+        let opcode = CPU::fetch_opcode(self);
 
         // Decode opcode
         // Execute opcode
@@ -93,14 +93,14 @@ impl CPU {
         }
     }
 
-    fn fetch_opcode(pc: u16, mem: [u8; 4096]) -> u16 {
+    fn fetch_opcode(&self) -> u16 {
         // Inputs: pc, memory
         // Output: opcode
         //
         // Use pc and pc + 1, merge
-        let counter = pc as usize;
+        let counter = self.program_counter as usize;
 
-        let r = merge_opcodes(mem[counter], mem[counter + 1]);
+        let r = merge_opcodes(self.memory[counter], self.memory[counter + 1]);
 
         r
     }
@@ -341,12 +341,14 @@ impl CPU {
                 let y_val = self.cpu_register[((opcode & 0x00F0) >> 4) as usize] as usize;
                 let height = (opcode & 0x000F) as usize;
                 let width = 8 as usize;
+                println!("X: {}", x_val);
+                println!("Y: {}", y_val);
 
                 self.cpu_register[0xF] = 0;
                 for i in 0..height {
-                    let sprite_row = self.memory[self.index as usize + 1];
-                    println!("From memory {}", sprite_row);
-                    println!("Index {}", self.index);
+                    let sprite_row = self.memory[self.index as usize + i];
+//                    println!("From memory {}", sprite_row);
+//                    println!("Index {}", self.index);
 
                     // Read out each pixel in the sprite from memory and check if it's set
                     for j in 0..width {
@@ -377,6 +379,7 @@ impl CPU {
 
                     // Skip next instruction if key stored in VX is pressed
                     0x009E => {
+                        println!("Awaiting key press {}", self.cpu_register[x]);
                         if self.key[self.cpu_register[x] as usize] {
                             self.program_counter += 2;
                         }
@@ -386,6 +389,7 @@ impl CPU {
 
                     // Skip next instruction if the key stored in VX is not pressed
                     0x00A1 => {
+                        println!("Awaiting key press {}", self.cpu_register[x]);
                         if !self.key[self.cpu_register[x] as usize]{
                             self.program_counter += 2;
                         }
@@ -411,9 +415,16 @@ impl CPU {
 
                     // Await key press and store in VX (0xFX0A)
                     0x000A => {
-                        if self.key[self.cpu_register[x] as usize] {
-                            self.program_counter += 2;
+                        println!("HIT THE KEY AWAIT, THIS SHOULD WAIT");
+                        for (i, key) in self.key.iter().enumerate() {
+                            if *key == true {
+                                self.cpu_register[x] = i as u8;
+                                self.program_counter += 2;
+                            }
+
+
                         }
+
                     }
 
                     // Set delay timer to VX (0xFX15)

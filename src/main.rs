@@ -66,6 +66,7 @@ pub fn main() {
                     break 'running
                 },
                 Event::KeyDown { keycode: Some(Keycode::Num1), .. } => {
+                    println!("Pressed 1");
                     cpu.key[0] = true;
                 },
                 Event::KeyDown { keycode: Some(Keycode::Num2), .. } => {
@@ -137,9 +138,9 @@ pub fn main() {
                 if pixels[i] == 1 {
                     let x_pos = (i % 64) as i32;
                     let y_pos = (i / 64) as i32;
-                    println!("i {}", i);
-                    println!("x pos {}", x_pos);
-                    println!("y pos {}", y_pos);
+//                    println!("i {}", i);
+//                    println!("x pos {}", x_pos);
+//                    println!("y pos {}", y_pos);
                     canvas.fill_rect(Rect::new(x_pos * 30, y_pos * 30, pixel_width, pixel_width));
                 }
             }
@@ -152,7 +153,8 @@ pub fn main() {
             k = &false;
         }
 
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        //::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        ::std::thread::sleep(Duration::new(0, 1_000_000u32 / 60));
     }
 }
 
@@ -199,7 +201,8 @@ pub fn draw_something() {
         // The rest of the game loop goes here...
 
 //        canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        //::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        //::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 
 }
