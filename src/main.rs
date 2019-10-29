@@ -66,8 +66,10 @@ pub fn main() {
                     break 'running
                 },
                 Event::KeyDown { keycode: Some(Keycode::Num1), .. } => {
-                    println!("Pressed 1");
                     cpu.key[0] = true;
+                },
+                Event::KeyUp { keycode: Some(Keycode::Num1), .. } => {
+                    cpu.key[0] = false;
                 },
                 Event::KeyDown { keycode: Some(Keycode::Num2), .. } => {
                     cpu.key[1] = true;
@@ -81,11 +83,17 @@ pub fn main() {
                 Event::KeyDown { keycode: Some(Keycode::Q), .. } => {
                     cpu.key[4] = true;
                 },
+                Event::KeyUp { keycode: Some(Keycode::Q), .. } => {
+                    cpu.key[4] = false;
+                },
                 Event::KeyDown { keycode: Some(Keycode::W), .. } => {
                     cpu.key[5] = true;
                 },
                 Event::KeyDown { keycode: Some(Keycode::E), .. } => {
                     cpu.key[6] = true;
+                },
+                Event::KeyUp { keycode: Some(Keycode::E), .. } => {
+                    cpu.key[6] = false;
                 },
                 Event::KeyDown { keycode: Some(Keycode::R), .. } => {
                     cpu.key[7] = true;
@@ -115,6 +123,7 @@ pub fn main() {
                     cpu.key[15] = true;
                 },
 
+
                 _ => {}
             }
         }
@@ -123,8 +132,8 @@ pub fn main() {
         let pixels = cpu.pixels;
 
         if cpu.draw_flag {
-            println!("Drawing!");
-            println!("{:?}", &pixels[..2048]);
+//            println!("Drawing!");
+//            println!("{:?}", &pixels[..2048]);
 
             canvas.set_draw_color(black);
             canvas.clear();
@@ -149,12 +158,10 @@ pub fn main() {
         }
 
         // Clean up the key inputs after each cycle
-        for mut k in cpu.key.iter() {
-            k = &false;
-        }
+        //cpu.clear_keys();
 
         //::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
-        ::std::thread::sleep(Duration::new(0, 1_000_000u32 / 60));
+        ::std::thread::sleep(Duration::new(0, 1_000u32 / 60));
     }
 }
 
@@ -243,7 +250,7 @@ fn load_rom(memory: &mut [u8; 4096]) {
 
     println!("Attempting to read ROM");
 
-    let mut f = File::open("roms/PONG").unwrap();
+    let mut f = File::open("roms/BRIX").unwrap();
 
     //let mut buffer =  [0u8; 4096];
 

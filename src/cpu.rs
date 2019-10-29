@@ -87,6 +87,7 @@ impl CPU {
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
         }
+//        println!("Delay timer is {}", self.delay_timer);
 
         if self.sound_timer > 0 {
             self.sound_timer -= 1;
@@ -126,6 +127,7 @@ impl CPU {
                     0x00EE => {
                         self.stack_pointer -= 1;
                         self.program_counter = self.stack[self.stack_pointer as usize];
+                        self.program_counter += 2;
 
                     }
 
@@ -195,8 +197,11 @@ impl CPU {
             // Adds NN to VX, no carry flag change
             0x7000 => {
                 let x = ((opcode & 0x0F00) >> 8) as usize;
-                let nn = (opcode & 0x00FF) as u8;
-                self.cpu_register[x] = self.cpu_register[x] + nn;
+                let nn = (opcode & 0x00FF) as u16;
+
+                let sum = nn + self.cpu_register[x] as u16;
+
+                self.cpu_register[x] = (sum & 0x00FF) as u8;
                 self.program_counter += 2;
             }
 
@@ -357,6 +362,8 @@ impl CPU {
                         // Check if set
                         if sprite_x != 0 {
                             let index_in_gfx_array = x_val + j + (y_val + i) * 64;
+                            println!("Index: {}", index_in_gfx_array);
+                            println!("Yval: {}", y_val);
                             if self.pixels[index_in_gfx_array] == 1 {
                                 self.cpu_register[0xF] = 1;
                             }
@@ -380,6 +387,7 @@ impl CPU {
                     // Skip next instruction if key stored in VX is pressed
                     0x009E => {
                         println!("Awaiting key press {}", self.cpu_register[x]);
+                        println!("Now {}", self.key[self.cpu_register[x] as usize]);
                         if self.key[self.cpu_register[x] as usize] {
                             self.program_counter += 2;
                         }
@@ -390,6 +398,7 @@ impl CPU {
                     // Skip next instruction if the key stored in VX is not pressed
                     0x00A1 => {
                         println!("Awaiting key press {}", self.cpu_register[x]);
+                        println!("Now {}", self.key[self.cpu_register[x] as usize]);
                         if !self.key[self.cpu_register[x] as usize]{
                             self.program_counter += 2;
                         }
@@ -501,6 +510,12 @@ impl CPU {
     pub fn read_rom(&mut self, path: String) {
 
 
+    }
+
+    pub fn clear_keys(&mut self) {
+        for i in 0..self.key.len() {
+            self.key[i] = false;
+        }
     }
 }
 
